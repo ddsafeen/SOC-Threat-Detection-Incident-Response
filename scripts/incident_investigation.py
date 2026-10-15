@@ -1,143 +1,121 @@
 
-import csv
 import json
 from pathlib import Path
-from datetime import datetime
 from collections import Counter
 
+from authentication_detection import (
+    load_events,
+    detect_threats
+)
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-LOG_FILE = BASE_DIR / "logs" / "synthetic_auth_logs.csv"
 REPORT_DIR = BASE_DIR / "reports"
 REPORT_FILE = REPORT_DIR / "CASE-001-investigation.json"
 
 EVENT_TYPES = {
     4624: "Successful Logon",
     4625: "Failed Logon",
-    4672: "Privileged Logon",
+    4672: "Special Privileges Assigned",
     4740: "Account Lockout"
 }
 
-def load_events():
-    events = []
 
-    with LOG_FILE.open(
-        "r", encoding="utf-8-sig", newline=""
-    ) as file:
-        reader = csv.DictReader(file)
+def investigate(events, alerts):
+    counts = Counter(e["id"] for e in events)
 
-        for row in reader:
-            events.append({
-                "timestamp": row["TimeCreated"],
-                "event_id": int(row["Id"]),
-                "username": row["Username"],
-                "source_ip": row["SourceIP"]
-            })
-
-    return sorted(
-        events,
-        key=lambda event: datetime.strptime(
-            event["timestamp"], "%Y-%m-%d %H:%M:%S"
-        )
-    )
-
-
-def investigate(events):
-    counts = Counter(
-        event["event_id"] for event in events
-    )
-
-    timeline = []
-
-    for event in events:
-        timeline.append({
-            "time": event["timestamp"],
-            "event": EVENT_TYPES.get(
-                event["event_id"], "Unknown Event"
+    timeline = [
+        {
+            "timestamp": e["time"].isoformat(),
+            "event_id": e["id"],
+            "event_type": EVENT_TYPES.get(
+                e["id"], "Unknown Event"
             ),
-            "event_id": event["event_id"],
-            "username": event["username"],
-            "source_ip": event["source_ip"]
-        })
+            "username": e["user"],
+            "source_ip": e["ip"]
+        }
+        for e in events
+    ]
 
     findings = []
 
-    if counts[4625] >= 5:
-        findings.append(
-            "Five or more failed logon events observed."
-        )
-
-    if counts[4624] > 0 and counts[4625] > 0:
-        findings.append(
-            "Both successful and failed logons observed; "
-            "review event order and account correlation."
-        )
-
-    if counts[4740] > 0:
-        findings.append(
-            "Account lockout event observed."
-        )
-
-    if counts[4672] > 0:
-        findings.append(
-            "Privileged logon event observed."
-        )
+    for alert in alerts:
+        findings.append({
+            "rule_id": alert["rule"],
+            "severity": alert["severity"],
+            "timestamp": alert["time"],
+            "username": alert["user"],
+            "source_ip": alert["ip"],
+            "description": alert["description"]
+        })
 
     return {
         "case_id": "CASE-001",
         "dataset_type": "Synthetic",
-        "status": "Investigation in progress",
+        "status": "Simulated investigation completed",
         "total_events": len(events),
+        "total_alerts": len(alerts),
         "event_counts": {
-            str(key): value
-            for key, value in sorted(counts.items())
+            str(k): v for k, v in sorted(counts.items())
         },
         "timeline": timeline,
         "findings": findings,
-        "conclusion": (
-            "Suspicious authentication patterns observed "
-            "in synthetic data. Unauthorized access "
-            "has not been confirmed."
-        )
+        "assessment": (
+            "Authentication patterns requiring review "
+            "were detected in synthetic data. "
+            "Unauthorized access is not confirmed."
+        ),
+        "containment_performed": False
     }
 
 
 def main():
-    if not LOG_FILE.exists():
-        print("ERROR: Synthetic dataset not found.")
-        return
+    try:
+        events = load_events()
+        alerts = detect_threats(events)
 
-    REPORT_DIR.mkdir(exist_ok=True)
+        report = investigate(events, alerts)
 
-    events = load_events()
-    report = investigate(events)
-
-    with REPORT_FILE.open(
-        "w", encoding="utf-8"
-    ) as file:
-        json.dump(report, file, indent=4)
-
-    print("\n===== SOC INCIDENT INVESTIGATION =====")
-    print("Case ID:", report["case_id"])
-    print("Dataset:", report["dataset_type"])
-    print("Events analyzed:", report["total_events"])
-
-    print("\n===== EVENT TIMELINE =====")
-
-    for event in report["timeline"]:
-        print(
-            f"{event['time']} | "
-            f"{event['event_id']} | "
-            f"{event['username']} | "
-            f"{event['source_ip']}"
+        REPORT_DIR.mkdir(
+            parents=True, exist_ok=True
         )
 
-    print("\n===== INVESTIGATION FINDINGS =====")
+        with REPORT_FILE.open(
+            "w", encoding="utf-8"
+        ) as file:
+            json.dump(report, file, indent=4)
 
-    for finding in report["findings"]:
-        print("-", finding)
+        print("\n===== SOC INCIDENT INVESTIGATION =====")
+        print("Case ID:", report["case_id"])
+        print("Events analyzed:", report["total_events"])
+        print("Alerts generated:", report["total_alerts"])
 
-    print("\nReport saved to:")
-    print(REPORT_FILE)
+        print("\n===== DETECTION FINDINGS =====")
+
+        for finding in report["findings"]:
+            print(
+                f"\n[{finding['severity']}] "
+                f"{finding['rule_id']}"
+                f"\nTime: {finding['timestamp']}"
+                f"\nUser: {finding['username']}"
+                f"\nSource: {finding['source_ip']}"
+                f"\nFinding: {finding['description']}"
+            )
+
+        print("\n===== EVENT TIMELINE =====")
+
+        for event in report["timeline"]:
+            print(
+                f"{event['timestamp']} | "
+                f"{event['event_id']} | "
+                f"{event['username']} | "
+                f"{event['source_ip']}"
+            )
+
+        print("\nReport saved:", REPORT_FILE)
+
+    except (OSError, ValueError, KeyError) as error:
+        print(f"ERROR: Investigation failed: {error}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
