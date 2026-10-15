@@ -1,104 +1,127 @@
+
 import csv
 from pathlib import Path
 from datetime import datetime, timedelta
-from collections import defaultdict
+from collections import defaultdict, deque
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 LOG_FILE = BASE_DIR / "logs" / "synthetic_auth_logs.csv"
 
-FAILED_LOGON = 4625
-SUCCESS_LOGON = 4624
-ACCOUNT_LOCKOUT = 4740
-PRIVILEGED_LOGON = 4672
-
 WINDOW = timedelta(minutes=5)
 THRESHOLD = 5
+
+EVENT_NAMES = {
+    4624: "Successful Logon",
+    4625: "Failed Logon",
+    4740: "Account Lockout",
+    4672: "Privileged Logon"
+}
+
 
 def load_events():
     events = []
 
-    with LOG_FILE.open(encoding="utf-8-sig", newline="") as file:
+    with LOG_FILE.open(
+        encoding="utf-8-sig", newline=""
+    ) as file:
         reader = csv.DictReader(file)
 
-        for row in reader:
-            events.append({
-                "time": datetime.strptime(
-                    row["TimeCreated"], "%Y-%m-%d %H:%M:%S"
-                ),
-                "id": int(row["Id"]),
-                "user": row["Username"],
-                "ip": row["SourceIP"]
-            })
+        for line_number, row in enumerate(reader, start=2):
+            try:
+                event = {
+                    "time": datetime.strptime(
+                        row["TimeCreated"],
+                        "%Y-%m-%d %H:%M:%S"
+                    ),
+                    "id": int(row["Id"]),
+                    "user": row["Username"].strip(),
+                    "ip": row["SourceIP"].strip()
+                }
+
+                if not event["user"] or not event["ip"]:
+                    raise ValueError("Missing user or IP")
+
+                events.append(event)
+
+            except (ValueError, KeyError, TypeError) as error:
+                print(
+                    f"[WARNING] Skipping row "
+                    f"{line_number}: {error}"
+                )
 
     return sorted(events, key=lambda e: e["time"])
 
 
 def detect_threats(events):
-    failures = defaultdict(list)
-    threshold_alerted = set()
+    failures = defaultdict(deque)
+    active_alerts = set()
     alerts = []
+
+    def add_alert(rule, severity, description, event):
+        alerts.append({
+            "rule": rule,
+            "severity": severity,
+            "description": description,
+            "time": event["time"].isoformat(),
+            "user": event["user"],
+            "ip": event["ip"]
+        })
 
     for event in events:
         key = (event["user"], event["ip"])
         event_time = event["time"]
         event_id = event["id"]
 
-        if event_id == FAILED_LOGON:
-            failures[key].append(event_time)
+        recent = failures[key]
 
-            failures[key] = [
-                t for t in failures[key]
-                if event_time - t <= WINDOW
-            ]
+        while recent and event_time - recent[0] > WINDOW:
+            recent.popleft()
+
+        if len(recent) < THRESHOLD:
+            active_alerts.discard(key)
+
+        if event_id == 4625:
+            recent.append(event_time)
 
             if (
-                len(failures[key]) >= THRESHOLD
-                and key not in threshold_alerted
+                len(recent) >= THRESHOLD
+                and key not in active_alerts
             ):
-                alerts.append({
-                    "rule": "AUTH-001",
-                    "severity": "MEDIUM",
-                    "description": "Repeated failed logons",
-                    "user": event["user"],
-                    "ip": event["ip"]
-                })
-                threshold_alerted.add(key)
+                add_alert(
+                    "AUTH-001",
+                    "MEDIUM",
+                    "Repeated failed logons",
+                    event
+                )
+                active_alerts.add(key)
 
-        elif event_id == SUCCESS_LOGON:
-            recent_failures = [
-                t for t in failures[key]
-                if timedelta(0) <= event_time - t <= WINDOW
-            ]
+        elif event_id == 4624:
+            if len(recent) >= THRESHOLD:
+                add_alert(
+                    "AUTH-002",
+                    "HIGH",
+                    "Successful logon after failures",
+                    event
+                )
 
-            if len(recent_failures) >= THRESHOLD:
-                alerts.append({
-                    "rule": "AUTH-002",
-                    "severity": "HIGH",
-                    "description": "Successful logon after repeated failures",
-                    "user": event["user"],
-                    "ip": event["ip"]
-                })
+            recent.clear()
+            active_alerts.discard(key)
 
-            failures[key] = []
-            threshold_alerted.discard(key)
+        elif event_id == 4740:
+            add_alert(
+                "AUTH-003",
+                "MEDIUM",
+                "Account lockout detected",
+                event
+            )
 
-        elif event_id == ACCOUNT_LOCKOUT:
-            alerts.append({
-                "rule": "AUTH-003",
-                "severity": "MEDIUM",
-                "description": "Account lockout detected",
-                "user": event["user"],
-                "ip": event["ip"]
-            })
-
-        elif event_id == PRIVILEGED_LOGON:
-            alerts.append({
-                "rule": "AUTH-004",
-                "severity": "INFO",
-                "description": "Privileged logon event",
-                "user": event["user"],
-                "ip": event["ip"]
-            })
+        elif event_id == 4672:
+            add_alert(
+                "AUTH-004",
+                "INFO",
+                "Privileged logon event",
+                event
+            )
 
     return alerts
 
@@ -118,6 +141,7 @@ def main():
     for alert in alerts:
         print(
             f"\n[{alert['severity']}] {alert['rule']}"
+            f"\nTime: {alert['time']}"
             f"\nDescription: {alert['description']}"
             f"\nUser: {alert['user']}"
             f"\nSource IP: {alert['ip']}"
