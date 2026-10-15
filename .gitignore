@@ -1,0 +1,16 @@
+ # Private Windows Security Logs
+/logs/security_events.csv
+*.evtx
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+.venv/
+venv/
+
+# Temporary files
+*.tmp
+*.log
