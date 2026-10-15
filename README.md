@@ -36,21 +36,21 @@ The solution was developed for a resource-constrained Windows environment withou
 
 ```text
 Windows Security Event Logs
-            |
-            v
-     PowerShell Export
-            |
-            v
-      Python Analyzer
-            |
-            v
-   Authentication Detection
-            |
-            v
-      Alert Investigation
-            |
-            v
-     JSON Incident Report
+           |
+           v
+    PowerShell Export
+           |
+           v
+     Python Analyzer
+           |
+           v
+ Authentication Detection
+           |
+           v
+   Alert Investigation
+           |
+           v
+    JSON Incident Report
 ```
 
 The authentication detection and investigation components were tested using synthetic Windows-style security events. Genuine Windows logs were used separately for initial event-count analysis.
