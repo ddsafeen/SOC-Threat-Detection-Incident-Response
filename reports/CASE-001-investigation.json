@@ -1,0 +1,114 @@
+{
+    "case_id": "CASE-001",
+    "dataset_type": "Synthetic",
+    "status": "Simulated investigation completed",
+    "total_events": 9,
+    "total_alerts": 4,
+    "event_counts": {
+        "4624": 2,
+        "4625": 5,
+        "4672": 1,
+        "4740": 1
+    },
+    "timeline": [
+        {
+            "timestamp": "2026-10-15T10:00:00",
+            "event_id": 4625,
+            "event_type": "Failed Logon",
+            "username": "testuser",
+            "source_ip": "192.0.2.10"
+        },
+        {
+            "timestamp": "2026-10-15T10:00:30",
+            "event_id": 4625,
+            "event_type": "Failed Logon",
+            "username": "testuser",
+            "source_ip": "192.0.2.10"
+        },
+        {
+            "timestamp": "2026-10-15T10:01:00",
+            "event_id": 4625,
+            "event_type": "Failed Logon",
+            "username": "testuser",
+            "source_ip": "192.0.2.10"
+        },
+        {
+            "timestamp": "2026-10-15T10:01:30",
+            "event_id": 4625,
+            "event_type": "Failed Logon",
+            "username": "testuser",
+            "source_ip": "192.0.2.10"
+        },
+        {
+            "timestamp": "2026-10-15T10:02:00",
+            "event_id": 4625,
+            "event_type": "Failed Logon",
+            "username": "testuser",
+            "source_ip": "192.0.2.10"
+        },
+        {
+            "timestamp": "2026-10-15T10:02:30",
+            "event_id": 4624,
+            "event_type": "Successful Logon",
+            "username": "testuser",
+            "source_ip": "192.0.2.10"
+        },
+        {
+            "timestamp": "2026-10-15T10:03:00",
+            "event_id": 4740,
+            "event_type": "Account Lockout",
+            "username": "testuser",
+            "source_ip": "192.0.2.10"
+        },
+        {
+            "timestamp": "2026-10-15T10:04:00",
+            "event_id": 4672,
+            "event_type": "Special Privileges Assigned",
+            "username": "admin",
+            "source_ip": "192.0.2.20"
+        },
+        {
+            "timestamp": "2026-10-15T10:05:00",
+            "event_id": 4624,
+            "event_type": "Successful Logon",
+            "username": "employee",
+            "source_ip": "192.0.2.30"
+        }
+    ],
+    "findings": [
+        {
+            "rule_id": "AUTH-001",
+            "severity": "MEDIUM",
+            "timestamp": "2026-10-15T10:02:00",
+            "username": "testuser",
+            "source_ip": "192.0.2.10",
+            "description": "Repeated failed logons"
+        },
+        {
+            "rule_id": "AUTH-002",
+            "severity": "HIGH",
+            "timestamp": "2026-10-15T10:02:30",
+            "username": "testuser",
+            "source_ip": "192.0.2.10",
+            "description": "Successful logon after failures"
+        },
+        {
+            "rule_id": "AUTH-003",
+            "severity": "MEDIUM",
+            "timestamp": "2026-10-15T10:03:00",
+            "username": "testuser",
+            "source_ip": "192.0.2.10",
+            "description": "Account lockout detected"
+        },
+        {
+            "rule_id": "AUTH-004",
+            "severity": "INFO",
+            "timestamp": "2026-10-15T10:04:00",
+            "username": "admin",
+            "source_ip": "192.0.2.20",
+            "description": "Privileged logon event"
+        }
+    ],
+    "assessment": "Authentication patterns requiring review were detected in synthetic data. Unauthorized access is not confirmed.",
+    "containment_performed": false
+}
