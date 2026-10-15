@@ -27,21 +27,26 @@ The investigation identified suspicious authentication patterns requiring furthe
 | 4625 | Failed Logon | 5 |
 | 4624 | Successful Logon | 2 |
 | 4740 | Account Lockout | 1 |
-| 4672 | Special Privileges Assigned | 1 |
+| 4672 | Special Privileges Assigned to New Logon | 1 |
+| **Total** | | **9** |
 
 **Evidence source:** `logs/synthetic_auth_logs.csv`
+
+The dataset contains fictional accounts and documentation-only IP addresses. These events were created for controlled detection testing and do not represent a real security incident.
 
 ## 3. Authentication Timeline
 
 | Time | Event | Account |
 |---|---|---|
-| 10:00–10:02 | Five failed logons | testuser |
-| 10:02:30 | Successful logon | testuser |
-| 10:03:00 | Account lockout | testuser |
-| 10:04:00 | Privileged logon | admin |
+| 10:00:00–10:02:00 | Five failed logons from the same source IP | testuser |
+| 10:02:30 | Successful logon following repeated failures | testuser |
+| 10:03:00 | Account lockout event | testuser |
+| 10:04:00 | Special privileges assigned to new logon | admin |
+| 10:05:00 | Separate successful logon | employee |
 
-All timestamps represent simulated events on 15 October 2026.
+All timestamps are synthetic. The calendar date must match the dates recorded in `logs/synthetic_auth_logs.csv`.
 
+The sequence involving `testuser` triggered authentication correlation rules. The privileged event and separate successful logon do not, by themselves, establish malicious activity.
 ## 4. Detection Rules Triggered
 
 - AUTH-001: Repeated Failed Logons — Medium
